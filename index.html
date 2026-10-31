@@ -122,7 +122,14 @@ button { cursor: pointer; }
 .album.new .cover svg { opacity: 1; color: var(--accent); }
 
 /* ---------- grille de photos ---------- */
-.album-meta { padding-block: 14px 10px; font-size: .78rem; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.album-meta { padding-block: 14px 10px; font-size: .78rem; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.sort-btn {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 6px 12px 6px 10px; font-family: var(--f-body); font-size: .76rem; font-weight: 600;
+}
+.sort-btn svg { width: 15px; height: 15px; flex: none; color: var(--accent); }
+.sort-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding-bottom: 120px; }
 @media (min-width: 600px) { .grid { grid-template-columns: repeat(4, 1fr); gap: 4px; } }
 @media (min-width: 900px) { .grid { grid-template-columns: repeat(5, 1fr); } }
@@ -266,6 +273,7 @@ button { cursor: pointer; }
 }
 .upload-panel .row { display: flex; justify-content: space-between; gap: 10px; font-size: .84rem; }
 .upload-panel .meter-bar { height: 5px; }
+.upload-panel .hint { font-size: .74rem; color: var(--muted); }
 
 .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.8s linear infinite; margin: 60px auto; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -344,6 +352,9 @@ const ICONS = {
   image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8" />',
   left: '<path d="M15 5l-7 7 7 7" />',
   right: '<path d="M9 5l7 7-7 7" />',
+  sort: '<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4" />',
+  check: '<path d="M5 12l5 5L20 7" />',
+  blank: '',
 };
 const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -378,6 +389,46 @@ async function compress(file) {
 }
 
 /* =========================================================
+   Date de prise de vue (métadonnées EXIF du fichier d'origine)
+   ========================================================= */
+async function takenAt(file) {
+  try {
+    const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+    const v = new DataView(buf);
+    if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null; // pas un JPEG
+    let off = 2;
+    while (off + 4 <= v.byteLength) {
+      const marker = v.getUint16(off); const len = v.getUint16(off + 2);
+      if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) return readExifDate(v, off + 10);
+      if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) break;
+      off += 2 + len;
+    }
+  } catch (e) {}
+  return null;
+}
+function readExifDate(v, tiff) {
+  const le = v.getUint16(tiff) === 0x4949;
+  const u16 = o => v.getUint16(tiff + o, le), u32 = o => v.getUint32(tiff + o, le);
+  const str = (o, n) => { let t = ''; for (let i = 0; i < n; i++) { const c = v.getUint8(tiff + o + i); if (!c) break; t += String.fromCharCode(c); } return t; };
+  const readIfd = o => {
+    const tags = {}; const n = u16(o);
+    for (let i = 0; i < n; i++) {
+      const e = o + 2 + i * 12; const tag = u16(e); const type = u16(e + 2); const count = u32(e + 4);
+      if (type === 2) tags[tag] = str(count > 4 ? u32(e + 8) : e + 8, count);
+      else if (type === 4) tags[tag] = u32(e + 8);
+    }
+    return tags;
+  };
+  const ifd0 = readIfd(u32(4));
+  const exif = ifd0[0x8769] ? readIfd(ifd0[0x8769]) : {};
+  const raw = exif[0x9003] || exif[0x9004] || ifd0[0x0132];
+  const m = raw && raw.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if (!m || m[1] === '0000') return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]); // heure locale de l'appareil
+  return isNaN(d) || d.getFullYear() < 1990 || d > new Date(Date.now() + 864e5) ? null : d.toISOString();
+}
+
+/* =========================================================
    Backend Supabase
    ========================================================= */
 function supabaseBackend() {
@@ -392,6 +443,8 @@ function supabaseBackend() {
   const urlCache = new Map(); // "slot:path" -> { url, exp }
   let names = {};
   let slotUsage = clients.map(() => 0);
+  let hashColumn = false;
+  let takenColumn = false;
 
   // URLs signées (les fichiers sont privés), regroupées par espace de stockage
   async function signed(items) {
@@ -486,7 +539,21 @@ function supabaseBackend() {
       return rows.map(r => ({ ...r, thumbUrl: url({ path: r.thumb_path, slot: slotOf(r) }) }));
     },
     async fullUrl(photo) { const item = { path: photo.path, slot: slotOf(photo) }; return (await signed([item]))(item); },
-    async upload(albumId, c) {
+    async prepareUpload() {
+      // La colonne « taken_at » existe-t-elle ? (mise à jour « tri » faite ou non)
+      const { error } = await sb.from('photos').select('taken_at').limit(1);
+      takenColumn = !error;
+    },
+    async listHashes(albumId) {
+      const { data, error } = await sb.from('photos').select('file_hash').eq('album_id', albumId);
+      if (error) {
+        // Colonne absente : la mise à jour SQL n'a pas encore été faite, on envoie sans détecter les doublons
+        hashColumn = false; return null;
+      }
+      hashColumn = true;
+      return new Set(data.map(r => r.file_hash).filter(Boolean));
+    },
+    async upload(albumId, c, hash) {
       const size = c.full.size + c.thumb.size;
       // Premier espace qui a encore de la place
       const slot = slotUsage.findIndex(u => u + size <= CFG.quotaBytes * CFG.safetyMargin);
@@ -495,10 +562,16 @@ function supabaseBackend() {
       const opts = { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false };
       let r = await bucket(slot).upload(path, c.full, opts); if (r.error) throw r.error;
       r = await bucket(slot).upload(thumb_path, c.thumb, opts); if (r.error) { await bucket(slot).remove([path]); throw r.error; }
-      const row = await sb.from('photos').insert({
-        id, album_id: albumId, path, thumb_path, width: c.width, height: c.height, size_bytes: size, storage_slot: slot,
-      }).select().single();
-      if (row.error) { await bucket(slot).remove([path, thumb_path]); throw row.error; }
+      const rec = { id, album_id: albumId, path, thumb_path, width: c.width, height: c.height, size_bytes: size, storage_slot: slot };
+      if (hashColumn && hash) rec.file_hash = hash;
+      if (takenColumn && c.takenAt) rec.taken_at = c.takenAt;
+      const row = await sb.from('photos').insert(rec).select().single();
+      if (row.error) {
+        await bucket(slot).remove([path, thumb_path]);
+        // Même photo envoyée au même moment depuis l'autre téléphone
+        if (row.error.code === '23505') throw new Error('doublon');
+        throw row.error;
+      }
       slotUsage[slot] += size;
       return row.data;
     },
@@ -555,9 +628,11 @@ function demoBackend() {
       const [w, h] = portrait ? [900, 1200] : [1200, 900];
       const full = await scene(firstSeed + i, w, h); const thumb = await scene(firstSeed + i, w / 4, h / 4);
       const at = new Date(Date.now() - (daysAgo - Math.floor(i / 4)) * 864e5 - i * 37e5).toISOString();
+      // date de prise de vue : quelques jours à quelques semaines avant l'ajout, dans un ordre différent
+      const taken = i % 5 === 4 ? null : new Date(Date.parse(at) - ((i * 7) % 11 + 1) * 864e5 - i * 53e5).toISOString();
       photos.push({ id: uid(), album_id: a.id, fullUrl: URL.createObjectURL(full), thumbUrl: URL.createObjectURL(thumb),
         width: w, height: h, size_bytes: full.size * 6 + thumb.size, caption: i === 0 ? 'Premier soir, coucher de soleil' : '',
-        uploaded_by: i % 2 ? OTHER : ME, created_at: at, _blob: full });
+        uploaded_by: i % 2 ? OTHER : ME, created_at: at, taken_at: taken, _blob: full });
     }
   }
   let seeded = null;
@@ -597,11 +672,13 @@ function demoBackend() {
     async deleteAlbum(id) { for (let i = photos.length - 1; i >= 0; i--) if (photos[i].album_id === id) photos.splice(i, 1); albums.splice(albums.findIndex(a => a.id === id), 1); },
     async listPhotos(albumId) { await ensureSeed(); return photos.filter(p => p.album_id === albumId).sort((x, y) => y.created_at.localeCompare(x.created_at)).map(p => ({ ...p })); },
     async fullUrl(p) { return photos.find(x => x.id === p.id)?.fullUrl || p.fullUrl; },
-    async upload(albumId, c) {
+    async prepareUpload() {},
+    async listHashes(albumId) { await ensureSeed(); return new Set(photos.filter(p => p.album_id === albumId && p.file_hash).map(p => p.file_hash)); },
+    async upload(albumId, c, hash) {
       await sleep(250 + Math.random() * 300);
       const p = { id: uid(), album_id: albumId, fullUrl: URL.createObjectURL(c.full), thumbUrl: URL.createObjectURL(c.thumb),
         width: c.width, height: c.height, size_bytes: c.full.size + c.thumb.size, caption: '', uploaded_by: ME,
-        created_at: new Date().toISOString(), _blob: c.full };
+        created_at: new Date().toISOString(), taken_at: c.takenAt || null, _blob: c.full, file_hash: hash || null };
       photos.push(p); return { ...p };
     },
     async setCaption(id, caption) { const p = photos.find(p => p.id === id); if (p) p.caption = caption; },
@@ -618,6 +695,25 @@ const api = DEMO ? demoBackend() : supabaseBackend();
    ========================================================= */
 const app = $('#app');
 const state = { user: null, view: 'loading', albums: [], usage: 0, album: null, photos: [], pending: [], uploading: null };
+
+/* Tri des photos d'un album : par date de prise de vue ou d'ajout, récentes ou anciennes d'abord */
+const SORTS = {
+  'taken-desc': { by: 'taken', dir: -1, label: 'Prise de vue · récentes d’abord' },
+  'taken-asc': { by: 'taken', dir: 1, label: 'Prise de vue · anciennes d’abord' },
+  'added-desc': { by: 'added', dir: -1, label: 'Ajout · récentes d’abord' },
+  'added-asc': { by: 'added', dir: 1, label: 'Ajout · anciennes d’abord' },
+};
+let sortMode = 'taken-desc';
+try { const v = localStorage.getItem('nos-photos-tri'); if (SORTS[v]) sortMode = v; } catch (e) {}
+const sortDate = p => (SORTS[sortMode].by === 'taken' && p.taken_at) ? p.taken_at : p.created_at;
+function sortPhotos() {
+  const dir = SORTS[sortMode].dir;
+  state.photos.sort((a, b) => dir * (Date.parse(sortDate(a)) - Date.parse(sortDate(b))) || dir * a.created_at.localeCompare(b.created_at));
+}
+function setSort(mode) {
+  sortMode = mode; try { localStorage.setItem('nos-photos-tri', mode); } catch (e) {}
+  sortPhotos(); render();
+}
 
 function demoBanner() {
   if (!DEMO) return '';
@@ -694,8 +790,9 @@ function renderAlbum() {
   const bytes = state.photos.reduce((s, p) => s + Number(p.size_bytes || 0), 0);
   let lastDay = null; const cells = [];
   list.forEach((p, i) => {
-    const k = dayKey(p.created_at);
-    if (k !== lastDay) { cells.push(`<div class="day-label mono">${dayLabel(p.created_at)}</div>`); lastDay = k; }
+    const d = p._pending ? p.created_at : sortDate(p);
+    const k = p._pending ? 'pending' : dayKey(d);
+    if (k !== lastDay) { cells.push(`<div class="day-label mono">${p._pending ? 'En cours d’envoi' : dayLabel(d)}</div>`); lastDay = k; }
     if (p._pending) cells.push(`<div class="cell pending" style="--p:${p.progress}%">${p.preview ? `<img class="ready" src="${p.preview}" alt="" style="opacity:.55">` : ''}</div>`);
     else cells.push(`<button class="cell" data-i="${i - state.pending.length}" aria-label="Ouvrir la photo"><img src="${esc(p.thumbUrl)}" alt="${esc(p.caption || '')}" loading="lazy" onload="this.classList.add('ready')"></button>`);
   });
@@ -706,7 +803,8 @@ function renderAlbum() {
     <button class="icon-btn" id="album-menu" aria-label="Options de l’album">${icon('more')}</button>
   </div></header>
   <main class="wrap">
-    ${list.length ? `<div class="album-meta mono"><span>${plural(state.photos.length, 'photo', 'photos')}</span><span>${fmtBytes(bytes)}</span></div>
+    ${list.length ? `<div class="album-meta mono"><span>${plural(state.photos.length, 'photo', 'photos')}</span><span>${fmtBytes(bytes)}</span>
+      <button class="sort-btn" id="sort-btn" aria-label="Changer le tri">${icon('sort')}<span>${SORTS[sortMode].label}</span></button></div>
     <div class="grid">${cells.join('')}</div>` : `
     <div class="empty">${icon('image').replace('<svg', '<svg width="40" height="40"')}<strong>Album vide</strong><p>Ajoute les premières photos. Elles apparaîtront aussi sur l’autre téléphone.</p></div>`}
   </main>
@@ -716,6 +814,9 @@ function renderAlbum() {
   $('#add-photos').addEventListener('click', () => $('#file-input').click());
   app.querySelectorAll('.cell[data-i]').forEach(b => b.addEventListener('click', () => openViewer(+b.dataset.i)));
   app.querySelectorAll('.cell img').forEach(img => { if (img.complete) img.classList.add('ready'); });
+  $('#sort-btn')?.addEventListener('click', () => menuSheet(Object.entries(SORTS).map(([k, v]) => ({
+    label: v.label, icon: k === sortMode ? 'check' : 'blank', run: () => setSort(k),
+  })), 'Trier les photos'));
   $('#album-menu').addEventListener('click', () => menuSheet([
     { label: 'Renommer l’album', icon: 'edit', run: renameAlbumSheet },
     { label: 'Supprimer l’album', icon: 'trash', danger: true, run: deleteAlbumSheet },
@@ -725,8 +826,9 @@ function renderAlbum() {
 function uploadPanelHtml() {
   const u = state.uploading;
   return `<div class="upload-panel" role="status">
-    <div class="row"><span>Envoi des photos…</span><span class="mono">${u.done} / ${u.total}</span></div>
+    <div class="row"><span>${u.step || 'Envoi des photos…'}</span><span class="mono">${u.done} / ${u.total}</span></div>
     <div class="meter-bar"><span style="width:${(u.done / u.total * 100).toFixed(0)}%"></span></div>
+    <div class="hint">Garde l’appli ouverte jusqu’à la fin.</div>
   </div>`;
 }
 
@@ -734,7 +836,7 @@ let toastTimer;
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
-  document.body.appendChild(t); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 3200);
+  document.body.appendChild(t); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), Math.max(3200, msg.length * 70));
 }
 
 /* =========================================================
@@ -751,8 +853,8 @@ function sheet(html, onMount) {
   onMount && onMount(bd, close);
   return close;
 }
-function menuSheet(items) {
-  sheet(`<div class="menu-list">${items.map((it, i) => `<button data-i="${i}" class="${it.danger ? 'danger' : ''}">${icon(it.icon)}${esc(it.label)}</button>`).join('')}</div>
+function menuSheet(items, title) {
+  sheet(`${title ? `<h4>${esc(title)}</h4>` : ''}<div class="menu-list">${items.map((it, i) => `<button data-i="${i}" class="${it.danger ? 'danger' : ''}">${icon(it.icon)}${esc(it.label)}</button>`).join('')}</div>
     <button class="btn ghost" data-close>Annuler</button>`, (bd, close) => {
     bd.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { close(); items[+b.dataset.i].run(); }));
     bd.querySelector('[data-close]').addEventListener('click', close);
@@ -804,12 +906,12 @@ async function openAlbum(id, fromPop) {
   state.album = a; state.view = 'album'; state.photos = []; state.pending = [];
   if (!fromPop) history.pushState({ v: 'album', id }, '');
   app.innerHTML = '<div class="spinner"></div>';
-  try { state.photos = await api.listPhotos(id); } catch (e) { toast('Impossible de charger les photos.'); }
+  try { state.photos = await api.listPhotos(id); sortPhotos(); } catch (e) { toast('Impossible de charger les photos.'); }
   render(); window.scrollTo(0, 0);
 }
 async function refreshAlbum() {
   if (state.view !== 'album' || !state.album) return;
-  state.photos = await api.listPhotos(state.album.id);
+  state.photos = await api.listPhotos(state.album.id); sortPhotos();
 }
 
 function newAlbumSheet() {
@@ -834,41 +936,88 @@ function deleteAlbumSheet() {
     ok: 'Supprimer', onConfirm: async () => { await api.deleteAlbum(state.album.id); toast('Album supprimé'); history.back(); } });
 }
 
+/* Empreinte d'une photo : SHA-256 du fichier d'origine (null si le navigateur ne sait pas faire) */
+async function fingerprint(file) {
+  try {
+    if (!crypto.subtle) return null;
+    const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) { return null; }
+}
+
+/* Garder l'écran allumé pendant un envoi (ignoré si le téléphone ne le permet pas) */
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on) {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } else if (wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.uploading) keepAwake(true);
+});
+
 $('#file-input').addEventListener('change', async e => {
   const files = [...e.target.files].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
   e.target.value = '';
   if (!files.length || !state.album) return;
   const albumId = state.album.id;
-  state.uploading = { done: 0, total: files.length };
+  state.uploading = { done: 0, total: files.length, step: 'Vérification des doublons…' };
   state.pending = files.map(() => ({ _pending: true, progress: 5, created_at: new Date().toISOString() }));
   render();
-  let failed = 0, unsupported = 0, full = 0;
+  keepAwake(true);
+
+  // Empreintes déjà présentes dans l'album (null = la base ne gère pas encore les doublons)
+  let known = null;
+  try { known = await api.listHashes(albumId); } catch (err) { console.error(err); }
+  try { await api.prepareUpload(); } catch (err) { console.error(err); }
+  state.uploading.step = null;
+
+  let failed = 0, unsupported = 0, full = 0, dupes = 0;
   for (let i = 0; i < files.length; i++) {
     if (full) { full++; state.pending.shift(); continue; }
     const slot = state.pending[0];
     try {
-      const c = await compress(files[i]);
-      slot.preview = URL.createObjectURL(c.thumb); slot.progress = 45; if (state.album?.id === albumId) render();
-      const photo = await api.upload(albumId, c);
-      if (!DEMO) { photo.thumbUrl = slot.preview; }
-      slot.progress = 100;
-      if (state.album?.id === albumId) { state.photos.unshift(photo); }
-      state.usage += c.full.size + c.thumb.size;
+      const hash = known ? await fingerprint(files[i]) : null;
+      if (hash && known.has(hash)) { dupes++; }
+      else {
+        const c = await compress(files[i]);
+        c.takenAt = await takenAt(files[i]);
+        slot.preview = URL.createObjectURL(c.thumb); slot.progress = 45; if (state.album?.id === albumId) render();
+        const photo = await api.upload(albumId, c, hash);
+        if (hash) known.add(hash);
+        if (!DEMO) { photo.thumbUrl = slot.preview; }
+        slot.progress = 100;
+        if (state.album?.id === albumId) { state.photos.unshift(photo); sortPhotos(); }
+        state.usage += c.full.size + c.thumb.size;
+      }
     } catch (err) {
-      if (err.message === 'format') unsupported++; else if (err.message === 'plein') full = 1; else failed++;
-      console.error(err);
+      if (err.message === 'format') unsupported++;
+      else if (err.message === 'plein') full = 1;
+      else if (err.message === 'doublon') dupes++;
+      else failed++;
+      if (err.message !== 'doublon') console.error(err);
     }
     state.pending = state.pending.filter(p => p !== slot);
     state.uploading.done = i + 1;
     if (state.album?.id === albumId) render();
   }
   state.uploading = null; state.pending = [];
+  keepAwake(false);
   if (state.album?.id === albumId) render();
-  const ok = files.length - failed - unsupported - full;
+
+  const ok = files.length - failed - unsupported - full - dupes;
+  const parts = [];
+  if (ok || !dupes) parts.push(`${plural(ok, 'photo ajoutée', 'photos ajoutées')}`);
+  if (dupes) parts.push(ok ? `${plural(dupes, 'déjà présente ignorée', 'déjà présentes ignorées')}` : `Rien de nouveau : ${plural(dupes, 'photo déjà présente', 'photos déjà présentes')}`);
   if (full) toast(`Plus de place : les ${fmtBytes(api.quota)} sont pleins. ${plural(full, 'photo n’a', 'photos n’ont')} pas été envoyée${full > 1 ? 's' : ''}.`);
-  else if (unsupported) toast(`${plural(unsupported, 'photo ignorée', 'photos ignorées')} : format non lu par ce navigateur.`);
-  else if (failed) toast(`${plural(failed, 'photo n’a', 'photos n’ont')} pas pu être envoyée${failed > 1 ? 's' : ''}. Vérifie la connexion et réessaie.`);
-  else toast(`${plural(ok, 'photo ajoutée', 'photos ajoutées')}`);
+  else if (unsupported) toast(`${parts.join(' · ')}. ${plural(unsupported, 'photo ignorée', 'photos ignorées')} : format non lu par ce navigateur.`);
+  else if (failed) toast(`${parts.join(' · ')}. ${plural(failed, 'photo n’a', 'photos n’ont')} pas pu être envoyée${failed > 1 ? 's' : ''} : vérifie la connexion et renvoie la même sélection, les doublons seront ignorés.`);
+  else toast(parts.join(' · '));
 });
 
 /* =========================================================
@@ -953,7 +1102,9 @@ function updateMeta() {
   $('.count', viewer.el).textContent = `${viewer.index + 1} / ${state.photos.length}`;
   const cap = $('.cap', viewer.el);
   cap.textContent = p.caption || 'Pas de légende'; cap.classList.toggle('placeholder', !p.caption);
-  $('.by', viewer.el).textContent = `${api.name(p.uploaded_by)} · ${fmtDate(p.created_at, true)}`;
+  $('.by', viewer.el).textContent = p.taken_at
+    ? `Prise le ${fmtDate(p.taken_at, true)} · ajoutée par ${api.name(p.uploaded_by)}`
+    : `Ajoutée par ${api.name(p.uploaded_by)} le ${fmtDate(p.created_at, true)}`;
   $('.prev', viewer.el).style.visibility = viewer.index > 0 ? 'visible' : 'hidden';
   $('.next', viewer.el).style.visibility = viewer.index < state.photos.length - 1 ? 'visible' : 'hidden';
 }
