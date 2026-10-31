@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111413" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nos photos">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Nos photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : une planche contact — grille serrée de tirages, chiffres façon bord de pellicule, une seule action flottante */
+:root {
+  --bg: #eef0ec;          /* papier de labo, légèrement vert-gris */
+  --surface: #fbfcfa;
+  --ink: #1a1d1b;
+  --muted: #5f6762;
+  --line: #d6dbd5;
+  --accent: #1d6a63;      /* bain de fixateur */
+  --accent-ink: #ffffff;
+  --accent-soft: #d5e8e4;
+  --danger: #b3261e;
+  --scrim: rgb(9, 11, 10);
+  --shadow: 0 1px 2px rgba(20, 30, 25, .08), 0 8px 24px rgba(20, 30, 25, .08);
+  --f-display: "Young Serif", Georgia, "Times New Roman", serif;
+  --f-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111413; --surface: #1a1e1c; --ink: #e9ece9; --muted: #9aa49e; --line: #2c322f;
+    --accent: #62c3b6; --accent-ink: #08201d; --accent-soft: #1d3632; --danger: #ff8a80;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111413; --surface: #1a1e1c; --ink: #e9ece9; --muted: #9aa49e; --line: #2c322f;
+  --accent: #62c3b6; --accent-ink: #08201d; --accent-soft: #1d3632; --danger: #ff8a80;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* ---------- barre du haut ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 10px; padding-block: 12px; min-height: 60px; }
+.top h1, .top h2 {
+  margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.45rem; line-height: 1.15;
+  min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.icon-btn {
+  width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink);
+}
+.icon-btn:hover { background: var(--accent-soft); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+.demo-banner {
+  background: var(--accent-soft); color: var(--ink); font-size: .82rem;
+}
+.demo-banner .wrap { padding-block: 8px; display: flex; gap: 8px; align-items: baseline; }
+.demo-banner b { font-weight: 700; }
+
+/* ---------- jauge de stockage ---------- */
+.meter { display: grid; gap: 6px; padding-block: 18px 6px; }
+.meter-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: .78rem; color: var(--muted); }
+.meter-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter-bar span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+.meter.warn .meter-bar span { background: var(--danger); }
+
+/* ---------- albums ---------- */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 18px 12px; }
+.section-head h3 { margin: 0; font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px 14px; padding-bottom: 120px; }
+.album {
+  display: grid; gap: 8px; text-align: left; padding: 0; border: 0; background: none; min-width: 0;
+}
+.album .cover {
+  aspect-ratio: 4 / 5; width: 100%; max-width: 100%; border-radius: var(--r); overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow); position: relative;
+  display: grid; place-items: center; color: var(--muted);
+}
+.album .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.album .cover svg { width: 34px; height: 34px; opacity: .6; }
+.album .name { font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album .meta { font-size: .72rem; color: var(--muted); margin-top: -6px; }
+.album:hover .cover img { transform: scale(1.03); }
+.album .cover img { transition: transform .4s ease; }
+.album.new .cover { background: transparent; box-shadow: none; border: 1.5px dashed var(--line); }
+.album.new .cover span { font-weight: 600; color: var(--accent); display: grid; gap: 6px; justify-items: center; font-size: .9rem; }
+.album.new .cover svg { opacity: 1; color: var(--accent); }
+
+/* ---------- grille de photos ---------- */
+.album-meta { padding-block: 14px 10px; font-size: .78rem; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding-bottom: 120px; }
+@media (min-width: 600px) { .grid { grid-template-columns: repeat(4, 1fr); gap: 4px; } }
+@media (min-width: 900px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+.cell {
+  aspect-ratio: 1; max-width: 100%; border: 0; padding: 0; background: var(--line); overflow: hidden; position: relative;
+}
+.cell img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .25s; }
+.cell img.ready { opacity: 1; }
+.cell.pending { background: var(--accent-soft); }
+.cell.pending::after {
+  content: ""; position: absolute; left: 8px; right: 8px; bottom: 8px; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent) var(--p, 10%), color-mix(in srgb, var(--accent) 25%, transparent) var(--p, 10%));
+}
+.day-label { grid-column: 1 / -1; font-size: .72rem; color: var(--muted); padding: 14px 2px 4px; }
+.day-label:first-child { padding-top: 0; }
+
+.empty {
+  text-align: center; padding: 64px 20px 140px; color: var(--muted); display: grid; gap: 10px; justify-items: center;
+}
+.empty strong { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; color: var(--ink); }
+.empty p { margin: 0; max-width: 32ch; }
+
+/* ---------- bouton flottant ---------- */
+.fab {
+  position: fixed; z-index: 6;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex; align-items: center; gap: 8px; height: 54px; padding: 0 22px 0 18px;
+  border: 0; border-radius: 27px; background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.fab svg { width: 22px; height: 22px; }
+.fab:active { transform: scale(.97); }
+
+/* ---------- connexion ---------- */
+.login { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding-block: 40px; }
+.login-card { width: 100%; max-width: 360px; display: grid; gap: 18px; }
+.login-mark { display: grid; grid-template-columns: repeat(3, 28px); gap: 3px; }
+.login-mark i { aspect-ratio: 1; border-radius: 3px; background: var(--accent); }
+.login-mark i:nth-child(2n) { background: var(--accent-soft); }
+.login h1 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 2.3rem; line-height: 1.05; }
+.login p { margin: 0; color: var(--muted); }
+.field { display: grid; gap: 6px; }
+.field label { font-size: .78rem; font-weight: 600; color: var(--muted); }
+.field input {
+  height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  font-size: 16px;
+}
+.field input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.btn {
+  height: 48px; border: 0; border-radius: 12px; padding: 0 18px; font-weight: 700;
+  background: var(--accent); color: var(--accent-ink);
+}
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn[disabled] { opacity: .6; }
+.form-error { color: var(--danger); font-size: .88rem; min-height: 1.3em; }
+
+/* ---------- feuilles (menus, confirmations, saisies) ---------- */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fade .18s ease;
+}
+.sheet {
+  width: 100%; max-width: 520px; background: var(--surface); color: var(--ink);
+  border-radius: 20px 20px 0 0; display: grid; gap: 14px;
+  padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  animation: up .22s cubic-bezier(.2,.8,.2,1);
+}
+@media (min-width: 600px) { .sheet-backdrop { align-items: center; } .sheet { border-radius: 20px; } }
+.sheet h4 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.25rem; }
+.sheet p { margin: 0; color: var(--muted); }
+.sheet .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.sheet .actions .btn { flex: 1 1 auto; }
+.menu-list { display: grid; }
+.menu-list button {
+  display: flex; align-items: center; gap: 12px; text-align: left; border: 0; background: none;
+  padding: 14px 6px; border-bottom: 1px solid var(--line); font-weight: 500;
+}
+.menu-list button:last-child { border-bottom: 0; }
+.menu-list button.danger { color: var(--danger); }
+.menu-list svg { width: 20px; height: 20px; flex: none; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes up { from { transform: translateY(30px); opacity: 0; } }
+
+/* ---------- visionneuse ---------- */
+.viewer {
+  position: fixed; inset: 0; z-index: 30; background: var(--scrim); color: #f2f4f2;
+  display: grid; grid-template-rows: auto 1fr auto; touch-action: none; animation: fade .18s ease;
+}
+.viewer-top, .viewer-bottom {
+  display: flex; align-items: center; gap: 8px;
+  padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+.viewer-top { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+.viewer-top .count { flex: 1; text-align: center; font-size: .78rem; opacity: .8; }
+.viewer .icon-btn { color: #f2f4f2; }
+.viewer .icon-btn:hover { background: rgba(255,255,255,.12); }
+.stage { position: relative; overflow: hidden; }
+.track { position: absolute; inset: 0; display: flex; will-change: transform; }
+.slide { flex: 0 0 100%; height: 100%; display: grid; place-items: center; padding: 8px; }
+.slide img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; border-radius: 4px; }
+.nav-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%;
+  border: 0; background: rgba(255,255,255,.12); color: #fff; display: none; place-items: center;
+}
+.nav-arrow svg { width: 24px; height: 24px; }
+.nav-arrow.prev { left: max(14px, env(safe-area-inset-left, 0px)); }
+.nav-arrow.next { right: max(14px, env(safe-area-inset-right, 0px)); }
+@media (hover: hover) and (min-width: 700px) { .nav-arrow { display: grid; } }
+.viewer-bottom {
+  padding-top: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  flex-direction: column; align-items: stretch; gap: 10px;
+}
+.caption-line { display: grid; gap: 2px; padding: 0 6px; min-width: 0; }
+.caption-line .cap { font-size: .98rem; overflow-wrap: anywhere; }
+.caption-line .cap.placeholder { opacity: .55; font-style: italic; }
+.caption-line .by { font-size: .74rem; opacity: .7; }
+.viewer-actions { display: flex; justify-content: space-around; }
+.viewer-actions button {
+  display: grid; justify-items: center; gap: 4px; border: 0; background: none; color: #f2f4f2;
+  font-size: .72rem; padding: 6px 10px; border-radius: 10px; min-width: 72px;
+}
+.viewer-actions button:hover { background: rgba(255,255,255,.1); }
+.viewer-actions svg { width: 22px; height: 22px; }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 50;
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px;
+  font-size: .88rem; box-shadow: var(--shadow); max-width: calc(100% - 32px); animation: up .2s ease;
+}
+.viewer ~ .toast { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+.upload-panel {
+  position: fixed; z-index: 7; left: 50%; transform: translateX(-50%);
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  width: min(360px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow); display: grid; gap: 8px;
+}
+.upload-panel .row { display: flex; justify-content: space-between; gap: 10px; font-size: .84rem; }
+.upload-panel .meter-bar { height: 5px; }
+
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.8s linear infinite; margin: 60px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<div id="app"></div>
+<input type="file" id="file-input" accept="image/*" multiple hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   Configuration
+   ========================================================= */
+const CFG = Object.assign({
+  appName: 'Nos photos',
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+  extraStorage: [],    // projets Supabase supplémentaires, utilisés seulement pour stocker les fichiers
+  bucket: 'photos',
+  quotaBytes: 1024 * 1024 * 1024, // 1 Go par projet (offre gratuite Supabase)
+  safetyMargin: 0.97,  // on s'arrête à 97 % d'un projet avant de passer au suivant
+  maxSide: 1600,       // côté max de la photo envoyée
+  quality: 0.75,       // qualité JPEG de la photo
+  thumbSide: 400,      // côté max de la miniature
+  thumbQuality: 0.7,
+}, window.APP_CONFIG || {});
+const DEMO = CFG.demo === true || !CFG.supabaseUrl || !CFG.supabaseAnonKey || !window.supabase;
+
+/* =========================================================
+   Petits utilitaires
+   ========================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+function fmtDate(iso, withYear) {
+  const d = new Date(iso); const now = new Date();
+  const y = withYear || d.getFullYear() !== now.getFullYear() ? ' ' + d.getFullYear() : '';
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}${y}`;
+}
+function dayKey(iso) { const d = new Date(iso); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
+function dayLabel(iso) {
+  const d = new Date(iso); const t = new Date(); const y = new Date(); y.setDate(t.getDate() - 1);
+  if (dayKey(d) === dayKey(t)) return "Aujourd'hui";
+  if (dayKey(d) === dayKey(y)) return 'Hier';
+  return fmtDate(iso);
+}
+function fmtBytes(b) {
+  if (b <= 0) return '0 Ko';
+  if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + ' Ko';
+  if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(b < 10 * 1024 * 1024 ? 1 : 0).replace('.', ',') + ' Mo';
+  const g = b / 1024 / 1024 / 1024; return (Number.isInteger(g) ? g : g.toFixed(2).replace('.', ',')) + ' Go';
+}
+const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+
+const ICONS = {
+  back: '<path d="M15 5l-7 7 7 7" />',
+  more: '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
+  plus: '<path d="M12 5v14M5 12h14" />',
+  close: '<path d="M6 6l12 12M18 6L6 18" />',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14" />',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z" />',
+  text: '<path d="M5 6h14M5 12h14M5 18h9" />',
+  logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />',
+  image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8" />',
+  left: '<path d="M15 5l-7 7 7 7" />',
+  right: '<path d="M9 5l7 7-7 7" />',
+};
+const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* =========================================================
+   Compression des photos (avant envoi)
+   ========================================================= */
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve({ img, url }); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('format')); };
+    img.src = url;
+  });
+}
+function drawScaled(img, maxSide, quality) {
+  const w0 = img.naturalWidth, h0 = img.naturalHeight;
+  const k = Math.min(1, maxSide / Math.max(w0, h0));
+  const w = Math.round(w0 * k), h = Math.round(h0 * k);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise((res, rej) => c.toBlob(b => b ? res({ blob: b, w, h }) : rej(new Error('encode')), 'image/jpeg', quality));
+}
+async function compress(file) {
+  const { img, url } = await loadImage(file);
+  try {
+    const full = await drawScaled(img, CFG.maxSide, CFG.quality);
+    const thumb = await drawScaled(img, CFG.thumbSide, CFG.thumbQuality);
+    return { full: full.blob, thumb: thumb.blob, width: full.w, height: full.h };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* =========================================================
+   Backend Supabase
+   ========================================================= */
+function supabaseBackend() {
+  // Projet principal : connexion, base de données, temps réel, et 1er espace de stockage.
+  // Projets supplémentaires : uniquement des espaces de stockage pour les fichiers.
+  const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
+  const extras = (CFG.extraStorage || []).filter(x => x && x.supabaseUrl && x.supabaseAnonKey)
+    .map(x => window.supabase.createClient(x.supabaseUrl, x.supabaseAnonKey));
+  const clients = [sb, ...extras];
+  const bucket = slot => (clients[slot] || sb).storage.from(CFG.bucket);
+  const slotOf = p => Number(p?.storage_slot || 0);
+  const urlCache = new Map(); // "slot:path" -> { url, exp }
+  let names = {};
+  let slotUsage = clients.map(() => 0);
+
+  // URLs signées (les fichiers sont privés), regroupées par espace de stockage
+  async function signed(items) {
+    const now = Date.now(); const bySlot = new Map();
+    items.forEach(({ path, slot }) => {
+      if (!path) return; const k = slot + ':' + path;
+      if (urlCache.get(k)?.exp > now + 60000) return;
+      if (!bySlot.has(slot)) bySlot.set(slot, new Set()); bySlot.get(slot).add(path);
+    });
+    for (const [slot, set] of bySlot) {
+      const list = [...set];
+      for (let i = 0; i < list.length; i += 100) {
+        const { data, error } = await bucket(slot).createSignedUrls(list.slice(i, i + 100), 3600 * 6);
+        if (error) throw error;
+        data.forEach(d => { if (d.signedUrl) urlCache.set(slot + ':' + d.path, { url: d.signedUrl, exp: now + 3600 * 6 * 1000 }); });
+      }
+    }
+    return ({ path, slot }) => urlCache.get(slot + ':' + path)?.url || null;
+  }
+  async function removeFiles(photos) {
+    const bySlot = new Map();
+    photos.forEach(p => { const s = slotOf(p); if (!bySlot.has(s)) bySlot.set(s, []); bySlot.get(s).push(p.path, p.thumb_path); });
+    for (const [slot, paths] of bySlot) {
+      for (let i = 0; i < paths.length; i += 100) { const { error } = await bucket(slot).remove(paths.slice(i, i + 100)); if (error) throw error; }
+    }
+  }
+  const check = ({ data, error }) => { if (error) throw error; return data; };
+
+  return {
+    demo: false,
+    slots: clients.length,
+    quota: clients.length * CFG.quotaBytes,
+    async session() {
+      const { data } = await sb.auth.getSession(); if (!data.session) return null;
+      // Chaque espace supplémentaire a sa propre session : s'il en manque une, on redemande la connexion
+      for (const c of extras) {
+        const r = await c.auth.getSession();
+        if (!r.data.session) { await sb.auth.signOut(); return null; }
+      }
+      return data.session.user;
+    },
+    onAuth(cb) { sb.auth.onAuthStateChange((_e, s) => cb(s ? s.user : null)); },
+    async signIn(email, password) {
+      // On se connecte d'abord aux espaces supplémentaires : si l'un refuse, on ne va pas plus loin
+      for (let i = 0; i < extras.length; i++) {
+        const { error } = await extras[i].auth.signInWithPassword({ email, password });
+        if (error) {
+          await Promise.all(extras.map(c => c.auth.signOut().catch(() => {})));
+          throw new Error(error.message.includes('Invalid')
+            ? `L’espace de stockage n° ${i + 2} ne reconnaît pas ce compte. Crée le même compte (même e-mail, même mot de passe) dans ce projet Supabase.`
+            : error.message);
+        }
+      }
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        await Promise.all(extras.map(c => c.auth.signOut().catch(() => {})));
+        throw new Error(error.message.includes('Invalid') ? 'E-mail ou mot de passe incorrect.' : error.message);
+      }
+    },
+    async signOut() {
+      await Promise.all(extras.map(c => c.auth.signOut().catch(() => {})));
+      await sb.auth.signOut();
+    },
+    async loadMembers() {
+      const rows = check(await sb.from('members').select('user_id, display_name'));
+      names = Object.fromEntries(rows.map(r => [r.user_id, r.display_name]));
+      return rows.length;
+    },
+    name(id) { return names[id] || 'Quelqu’un'; },
+    async listAlbums() {
+      const rows = check(await sb.from('album_overview').select('*').order('last_activity', { ascending: false }));
+      const url = await signed(rows.map(r => ({ path: r.cover_thumb, slot: Number(r.cover_slot || 0) })));
+      return rows.map(r => ({ ...r, coverUrl: r.cover_thumb ? url({ path: r.cover_thumb, slot: Number(r.cover_slot || 0) }) : null }));
+    },
+    async usage() {
+      const rows = check(await sb.from('storage_usage').select('storage_slot, bytes'));
+      slotUsage = clients.map(() => 0);
+      rows.forEach(r => { const s = Number(r.storage_slot); slotUsage[s] = (slotUsage[s] || 0) + Number(r.bytes || 0); });
+      return slotUsage.reduce((a, b) => a + b, 0);
+    },
+    async createAlbum(name) { return check(await sb.from('albums').insert({ name }).select().single()); },
+    async renameAlbum(id, name) { check(await sb.from('albums').update({ name }).eq('id', id)); },
+    async deleteAlbum(id) {
+      const rows = check(await sb.from('photos').select('path, thumb_path, storage_slot, size_bytes').eq('album_id', id));
+      await removeFiles(rows);
+      check(await sb.from('albums').delete().eq('id', id));
+      rows.forEach(r => { slotUsage[slotOf(r)] -= Number(r.size_bytes || 0); });
+    },
+    async listPhotos(albumId) {
+      const rows = check(await sb.from('photos').select('*').eq('album_id', albumId).order('created_at', { ascending: false }));
+      const url = await signed(rows.map(r => ({ path: r.thumb_path, slot: slotOf(r) })));
+      return rows.map(r => ({ ...r, thumbUrl: url({ path: r.thumb_path, slot: slotOf(r) }) }));
+    },
+    async fullUrl(photo) { const item = { path: photo.path, slot: slotOf(photo) }; return (await signed([item]))(item); },
+    async upload(albumId, c) {
+      const size = c.full.size + c.thumb.size;
+      // Premier espace qui a encore de la place
+      const slot = slotUsage.findIndex(u => u + size <= CFG.quotaBytes * CFG.safetyMargin);
+      if (slot < 0) throw new Error('plein');
+      const id = uid(); const path = `${albumId}/${id}.jpg`; const thumb_path = `${albumId}/${id}_thumb.jpg`;
+      const opts = { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false };
+      let r = await bucket(slot).upload(path, c.full, opts); if (r.error) throw r.error;
+      r = await bucket(slot).upload(thumb_path, c.thumb, opts); if (r.error) { await bucket(slot).remove([path]); throw r.error; }
+      const row = await sb.from('photos').insert({
+        id, album_id: albumId, path, thumb_path, width: c.width, height: c.height, size_bytes: size, storage_slot: slot,
+      }).select().single();
+      if (row.error) { await bucket(slot).remove([path, thumb_path]); throw row.error; }
+      slotUsage[slot] += size;
+      return row.data;
+    },
+    async setCaption(id, caption) { check(await sb.from('photos').update({ caption }).eq('id', id)); },
+    async deletePhoto(p) {
+      await removeFiles([p]);
+      check(await sb.from('photos').delete().eq('id', p.id));
+      slotUsage[slotOf(p)] -= Number(p.size_bytes || 0);
+    },
+    async fetchBlob(photo) { const r = await fetch(await this.fullUrl(photo)); return r.blob(); },
+    subscribe(cb) {
+      sb.channel('changements')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'photos' }, cb)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'albums' }, cb)
+        .subscribe();
+    },
+  };
+}
+
+/* =========================================================
+   Backend de démonstration (tout reste en mémoire)
+   ========================================================= */
+function demoBackend() {
+  const ME = 'u1', OTHER = 'u2';
+  const names = { u1: 'Toi', u2: 'Ta moitié' };
+  const albums = []; const photos = [];
+  let user = null;
+
+  // Génère des « photos » d'exemple : paysages dessinés au canvas
+  const PALETTES = [
+    ['#f6c28b', '#e86f51', '#2b3a55', '#1b2638'], ['#a7d8de', '#5fa8b8', '#2f5d62', '#1d3b3f'],
+    ['#ffd6a5', '#ff9e7a', '#7a4e7e', '#3d2645'], ['#d9ed92', '#76c893', '#34a0a4', '#1a759f'],
+    ['#fde2e4', '#f4a6b7', '#6d597a', '#355070'], ['#fefae0', '#e9c46a', '#2a9d8f', '#264653'],
+  ];
+  function scene(seed, w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'); const p = PALETTES[seed % PALETTES.length];
+    let s = seed * 9301 + 49297; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, p[0]); g.addColorStop(.6, p[1]); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.arc(w * (.2 + rnd() * .6), h * (.25 + rnd() * .2), w * (.06 + rnd() * .05), 0, 7); x.fill();
+    [p[2], p[3]].forEach((col, i) => {
+      x.fillStyle = col; x.beginPath(); x.moveTo(0, h);
+      const base = h * (.55 + i * .17);
+      for (let k = 0; k <= 8; k++) x.lineTo(w * k / 8, base - rnd() * h * .14);
+      x.lineTo(w, h); x.fill();
+    });
+    return new Promise(r => c.toBlob(b => r(b), 'image/jpeg', .85));
+  }
+  async function seedAlbum(name, n, firstSeed, daysAgo) {
+    const a = { id: uid(), name, created_by: ME, created_at: new Date(Date.now() - daysAgo * 864e5).toISOString() };
+    albums.push(a);
+    for (let i = 0; i < n; i++) {
+      const portrait = (firstSeed + i) % 3 === 0;
+      const [w, h] = portrait ? [900, 1200] : [1200, 900];
+      const full = await scene(firstSeed + i, w, h); const thumb = await scene(firstSeed + i, w / 4, h / 4);
+      const at = new Date(Date.now() - (daysAgo - Math.floor(i / 4)) * 864e5 - i * 37e5).toISOString();
+      photos.push({ id: uid(), album_id: a.id, fullUrl: URL.createObjectURL(full), thumbUrl: URL.createObjectURL(thumb),
+        width: w, height: h, size_bytes: full.size * 6 + thumb.size, caption: i === 0 ? 'Premier soir, coucher de soleil' : '',
+        uploaded_by: i % 2 ? OTHER : ME, created_at: at, _blob: full });
+    }
+  }
+  let seeded = null;
+  const ensureSeed = () => seeded || (seeded = (async () => {
+    await seedAlbum('Vacances d’été', 14, 1, 40);
+    await seedAlbum('Week-end à la montagne', 7, 20, 12);
+    await seedAlbum('Le chat', 5, 33, 2);
+  })());
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let listener = () => {};
+
+  return {
+    demo: true,
+    slots: 2,
+    quota: 2 * CFG.quotaBytes,
+    async session() { return user; },
+    onAuth(cb) { listener = cb; },
+    async signIn(email, password) {
+      await sleep(350);
+      if (!email || !password) throw new Error('Remplis l’e-mail et le mot de passe.');
+      user = { id: ME, email }; listener(user);
+    },
+    async signOut() { user = null; listener(null); },
+    async loadMembers() { await ensureSeed(); return 2; },
+    name(id) { return names[id] || 'Quelqu’un'; },
+    async listAlbums() {
+      await ensureSeed();
+      return albums.map(a => {
+        const ps = photos.filter(p => p.album_id === a.id).sort((x, y) => y.created_at.localeCompare(x.created_at));
+        return { ...a, photo_count: ps.length, coverUrl: ps[0]?.thumbUrl || null, bytes: ps.reduce((s, p) => s + p.size_bytes, 0),
+          last_activity: ps[0]?.created_at || a.created_at };
+      }).sort((x, y) => y.last_activity.localeCompare(x.last_activity));
+    },
+    async usage() { await ensureSeed(); return photos.reduce((s, p) => s + p.size_bytes, 0); },
+    async createAlbum(name) { const a = { id: uid(), name, created_by: ME, created_at: new Date().toISOString() }; albums.push(a); return a; },
+    async renameAlbum(id, name) { const a = albums.find(a => a.id === id); if (a) a.name = name; },
+    async deleteAlbum(id) { for (let i = photos.length - 1; i >= 0; i--) if (photos[i].album_id === id) photos.splice(i, 1); albums.splice(albums.findIndex(a => a.id === id), 1); },
+    async listPhotos(albumId) { await ensureSeed(); return photos.filter(p => p.album_id === albumId).sort((x, y) => y.created_at.localeCompare(x.created_at)).map(p => ({ ...p })); },
+    async fullUrl(p) { return photos.find(x => x.id === p.id)?.fullUrl || p.fullUrl; },
+    async upload(albumId, c) {
+      await sleep(250 + Math.random() * 300);
+      const p = { id: uid(), album_id: albumId, fullUrl: URL.createObjectURL(c.full), thumbUrl: URL.createObjectURL(c.thumb),
+        width: c.width, height: c.height, size_bytes: c.full.size + c.thumb.size, caption: '', uploaded_by: ME,
+        created_at: new Date().toISOString(), _blob: c.full };
+      photos.push(p); return { ...p };
+    },
+    async setCaption(id, caption) { const p = photos.find(p => p.id === id); if (p) p.caption = caption; },
+    async deletePhoto(p) { const i = photos.findIndex(x => x.id === p.id); if (i >= 0) photos.splice(i, 1); },
+    async fetchBlob(p) { return photos.find(x => x.id === p.id)?._blob; },
+    subscribe() {},
+  };
+}
+
+const api = DEMO ? demoBackend() : supabaseBackend();
+
+/* =========================================================
+   État et rendu
+   ========================================================= */
+const app = $('#app');
+const state = { user: null, view: 'loading', albums: [], usage: 0, album: null, photos: [], pending: [], uploading: null };
+
+function demoBanner() {
+  if (!DEMO) return '';
+  return `<div class="demo-banner"><div class="wrap"><b>Démo</b><span>Les photos restent sur cet appareil et disparaissent quand tu fermes la page.</span></div></div>`;
+}
+
+function render() {
+  if (state.view === 'loading') { app.innerHTML = '<div class="spinner" role="status" aria-label="Chargement"></div>'; return; }
+  if (state.view === 'login') return renderLogin();
+  if (state.view === 'home') return renderHome();
+  if (state.view === 'album') return renderAlbum();
+}
+
+function renderLogin() {
+  app.innerHTML = `${demoBanner()}
+  <main class="login wrap">
+    <form class="login-card" id="login-form" novalidate>
+      <div class="login-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <h1>${esc(CFG.appName)}</h1>
+      <p>${DEMO ? 'Mode démo : mets n’importe quel e-mail et mot de passe.' : 'L’album partagé, rien qu’à vous deux.'}</p>
+      <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="username" inputmode="email" required value="${DEMO ? 'toi@exemple.fr' : ''}"></div>
+      <div class="field"><label for="password">Mot de passe</label><input id="password" type="password" autocomplete="current-password" required value="${DEMO ? 'demo' : ''}"></div>
+      <div class="form-error" id="login-error" role="alert"></div>
+      <button class="btn" type="submit" id="login-btn">Se connecter</button>
+    </form>
+  </main>`;
+  $('#login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#login-btn'); btn.disabled = true; btn.textContent = 'Connexion…'; $('#login-error').textContent = '';
+    try { await api.signIn($('#email').value.trim(), $('#password').value); }
+    catch (err) { $('#login-error').textContent = err.message || 'Connexion impossible.'; btn.disabled = false; btn.textContent = 'Se connecter'; }
+  });
+}
+
+function meterHtml() {
+  const pct = Math.min(100, state.usage / api.quota * 100);
+  return `<div class="meter ${pct > 85 ? 'warn' : ''}">
+    <div class="meter-row"><span>Espace utilisé</span><span class="mono">${fmtBytes(state.usage)} / ${fmtBytes(api.quota)}</span></div>
+    <div class="meter-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(0)}"><span style="width:${Math.max(pct, .8)}%"></span></div>
+  </div>`;
+}
+
+function renderHome() {
+  const albums = state.albums;
+  app.innerHTML = `${demoBanner()}
+  <header class="top"><div class="wrap">
+    <h1>${esc(CFG.appName)}</h1>
+    <button class="icon-btn" id="home-menu" aria-label="Menu">${icon('more')}</button>
+  </div></header>
+  <main class="wrap">
+    ${meterHtml()}
+    <div class="section-head"><h3>Albums</h3><span class="mono" style="font-size:.74rem;color:var(--muted)">${plural(albums.length, 'album', 'albums')}</span></div>
+    <div class="albums">
+      ${albums.map(a => `
+        <button class="album" data-id="${a.id}">
+          <div class="cover">${a.coverUrl ? `<img src="${esc(a.coverUrl)}" alt="" loading="lazy">` : icon('image')}</div>
+          <div class="name">${esc(a.name)}</div>
+          <div class="meta mono">${plural(Number(a.photo_count) || 0, 'photo', 'photos')} · ${fmtDate(a.last_activity || a.created_at)}</div>
+        </button>`).join('')}
+      <button class="album new" id="new-album">
+        <div class="cover"><span>${icon('plus')}Nouvel album</span></div>
+      </button>
+    </div>
+  </main>`;
+  app.querySelectorAll('.album[data-id]').forEach(b => b.addEventListener('click', () => openAlbum(b.dataset.id)));
+  $('#new-album').addEventListener('click', newAlbumSheet);
+  $('#home-menu').addEventListener('click', () => menuSheet([
+    { label: 'Se déconnecter', icon: 'logout', run: () => api.signOut() },
+  ]));
+}
+
+function renderAlbum() {
+  const a = state.album; const list = [...state.pending, ...state.photos];
+  const bytes = state.photos.reduce((s, p) => s + Number(p.size_bytes || 0), 0);
+  let lastDay = null; const cells = [];
+  list.forEach((p, i) => {
+    const k = dayKey(p.created_at);
+    if (k !== lastDay) { cells.push(`<div class="day-label mono">${dayLabel(p.created_at)}</div>`); lastDay = k; }
+    if (p._pending) cells.push(`<div class="cell pending" style="--p:${p.progress}%">${p.preview ? `<img class="ready" src="${p.preview}" alt="" style="opacity:.55">` : ''}</div>`);
+    else cells.push(`<button class="cell" data-i="${i - state.pending.length}" aria-label="Ouvrir la photo"><img src="${esc(p.thumbUrl)}" alt="${esc(p.caption || '')}" loading="lazy" onload="this.classList.add('ready')"></button>`);
+  });
+  app.innerHTML = `${demoBanner()}
+  <header class="top"><div class="wrap">
+    <button class="icon-btn" id="back" aria-label="Retour aux albums">${icon('back')}</button>
+    <h2>${esc(a.name)}</h2>
+    <button class="icon-btn" id="album-menu" aria-label="Options de l’album">${icon('more')}</button>
+  </div></header>
+  <main class="wrap">
+    ${list.length ? `<div class="album-meta mono"><span>${plural(state.photos.length, 'photo', 'photos')}</span><span>${fmtBytes(bytes)}</span></div>
+    <div class="grid">${cells.join('')}</div>` : `
+    <div class="empty">${icon('image').replace('<svg', '<svg width="40" height="40"')}<strong>Album vide</strong><p>Ajoute les premières photos. Elles apparaîtront aussi sur l’autre téléphone.</p></div>`}
+  </main>
+  <button class="fab" id="add-photos">${icon('plus')}Ajouter des photos</button>
+  ${state.uploading ? uploadPanelHtml() : ''}`;
+  $('#back').addEventListener('click', () => history.back());
+  $('#add-photos').addEventListener('click', () => $('#file-input').click());
+  app.querySelectorAll('.cell[data-i]').forEach(b => b.addEventListener('click', () => openViewer(+b.dataset.i)));
+  app.querySelectorAll('.cell img').forEach(img => { if (img.complete) img.classList.add('ready'); });
+  $('#album-menu').addEventListener('click', () => menuSheet([
+    { label: 'Renommer l’album', icon: 'edit', run: renameAlbumSheet },
+    { label: 'Supprimer l’album', icon: 'trash', danger: true, run: deleteAlbumSheet },
+  ]));
+}
+
+function uploadPanelHtml() {
+  const u = state.uploading;
+  return `<div class="upload-panel" role="status">
+    <div class="row"><span>Envoi des photos…</span><span class="mono">${u.done} / ${u.total}</span></div>
+    <div class="meter-bar"><span style="width:${(u.done / u.total * 100).toFixed(0)}%"></span></div>
+  </div>`;
+}
+
+let toastTimer;
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  document.body.appendChild(t); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 3200);
+}
+
+/* =========================================================
+   Feuilles (menus, saisies, confirmations)
+   ========================================================= */
+function sheet(html, onMount) {
+  const bd = document.createElement('div'); bd.className = 'sheet-backdrop';
+  bd.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  const close = () => { bd.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  bd.addEventListener('click', e => { if (e.target === bd) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(bd);
+  onMount && onMount(bd, close);
+  return close;
+}
+function menuSheet(items) {
+  sheet(`<div class="menu-list">${items.map((it, i) => `<button data-i="${i}" class="${it.danger ? 'danger' : ''}">${icon(it.icon)}${esc(it.label)}</button>`).join('')}</div>
+    <button class="btn ghost" data-close>Annuler</button>`, (bd, close) => {
+    bd.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { close(); items[+b.dataset.i].run(); }));
+    bd.querySelector('[data-close]').addEventListener('click', close);
+  });
+}
+function inputSheet({ title, label, value = '', ok, placeholder = '', onSubmit, maxLength = 80 }) {
+  sheet(`<form id="sheet-form" style="display:grid;gap:14px">
+      <h4>${esc(title)}</h4>
+      <div class="field"><label for="sheet-input">${esc(label)}</label><input id="sheet-input" maxlength="${maxLength}" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off"></div>
+      <div class="form-error" id="sheet-error"></div>
+      <div class="actions"><button type="button" class="btn ghost" data-close>Annuler</button><button class="btn" type="submit">${esc(ok)}</button></div>
+    </form>`, (bd, close) => {
+    const input = bd.querySelector('#sheet-input'); setTimeout(() => { input.focus(); input.select(); }, 60);
+    bd.querySelector('[data-close]').addEventListener('click', close);
+    bd.querySelector('#sheet-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = bd.querySelector('button[type=submit]'); btn.disabled = true;
+      try { await onSubmit(input.value.trim()); close(); }
+      catch (err) { bd.querySelector('#sheet-error').textContent = err.message || 'Échec de l’enregistrement.'; btn.disabled = false; }
+    });
+  });
+}
+function confirmSheet({ title, text, ok, onConfirm }) {
+  sheet(`<h4>${esc(title)}</h4><p>${esc(text)}</p>
+    <div class="actions"><button class="btn ghost" data-close>Annuler</button><button class="btn danger" data-ok>${esc(ok)}</button></div>`, (bd, close) => {
+    bd.querySelector('[data-close]').addEventListener('click', close);
+    bd.querySelector('[data-ok]').addEventListener('click', async e => {
+      e.target.disabled = true;
+      try { await onConfirm(); close(); } catch (err) { close(); toast(err.message || 'La suppression a échoué.'); }
+    });
+  });
+}
+
+/* =========================================================
+   Actions
+   ========================================================= */
+async function loadHome() {
+  const [albums, usage] = await Promise.all([api.listAlbums(), api.usage()]);
+  state.albums = albums; state.usage = usage;
+}
+async function goHome(push) {
+  state.view = 'home'; state.album = null; state.photos = [];
+  if (push) history.pushState({ v: 'home' }, '');
+  try { await loadHome(); } catch (e) { toast('Impossible de charger les albums.'); }
+  render();
+}
+async function openAlbum(id, fromPop) {
+  const a = state.albums.find(a => a.id === id); if (!a) return goHome();
+  state.album = a; state.view = 'album'; state.photos = []; state.pending = [];
+  if (!fromPop) history.pushState({ v: 'album', id }, '');
+  app.innerHTML = '<div class="spinner"></div>';
+  try { state.photos = await api.listPhotos(id); } catch (e) { toast('Impossible de charger les photos.'); }
+  render(); window.scrollTo(0, 0);
+}
+async function refreshAlbum() {
+  if (state.view !== 'album' || !state.album) return;
+  state.photos = await api.listPhotos(state.album.id);
+}
+
+function newAlbumSheet() {
+  inputSheet({ title: 'Nouvel album', label: 'Nom de l’album', ok: 'Créer', placeholder: 'Ex. : Vacances d’été',
+    onSubmit: async name => {
+      if (!name) throw new Error('Donne un nom à l’album.');
+      const a = await api.createAlbum(name);
+      await loadHome(); openAlbum(a.id);
+    } });
+}
+function renameAlbumSheet() {
+  inputSheet({ title: 'Renommer l’album', label: 'Nom de l’album', value: state.album.name, ok: 'Renommer',
+    onSubmit: async name => {
+      if (!name) throw new Error('Le nom ne peut pas être vide.');
+      await api.renameAlbum(state.album.id, name); state.album.name = name; render(); toast('Album renommé');
+    } });
+}
+function deleteAlbumSheet() {
+  const n = state.photos.length;
+  confirmSheet({ title: 'Supprimer « ' + state.album.name + ' » ?',
+    text: n ? `Les ${plural(n, 'photo', 'photos')} de l’album seront supprimées pour vous deux. C’est définitif.` : 'L’album est vide. Il disparaîtra pour vous deux.',
+    ok: 'Supprimer', onConfirm: async () => { await api.deleteAlbum(state.album.id); toast('Album supprimé'); history.back(); } });
+}
+
+$('#file-input').addEventListener('change', async e => {
+  const files = [...e.target.files].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  e.target.value = '';
+  if (!files.length || !state.album) return;
+  const albumId = state.album.id;
+  state.uploading = { done: 0, total: files.length };
+  state.pending = files.map(() => ({ _pending: true, progress: 5, created_at: new Date().toISOString() }));
+  render();
+  let failed = 0, unsupported = 0, full = 0;
+  for (let i = 0; i < files.length; i++) {
+    if (full) { full++; state.pending.shift(); continue; }
+    const slot = state.pending[0];
+    try {
+      const c = await compress(files[i]);
+      slot.preview = URL.createObjectURL(c.thumb); slot.progress = 45; if (state.album?.id === albumId) render();
+      const photo = await api.upload(albumId, c);
+      if (!DEMO) { photo.thumbUrl = slot.preview; }
+      slot.progress = 100;
+      if (state.album?.id === albumId) { state.photos.unshift(photo); }
+      state.usage += c.full.size + c.thumb.size;
+    } catch (err) {
+      if (err.message === 'format') unsupported++; else if (err.message === 'plein') full = 1; else failed++;
+      console.error(err);
+    }
+    state.pending = state.pending.filter(p => p !== slot);
+    state.uploading.done = i + 1;
+    if (state.album?.id === albumId) render();
+  }
+  state.uploading = null; state.pending = [];
+  if (state.album?.id === albumId) render();
+  const ok = files.length - failed - unsupported - full;
+  if (full) toast(`Plus de place : les ${fmtBytes(api.quota)} sont pleins. ${plural(full, 'photo n’a', 'photos n’ont')} pas été envoyée${full > 1 ? 's' : ''}.`);
+  else if (unsupported) toast(`${plural(unsupported, 'photo ignorée', 'photos ignorées')} : format non lu par ce navigateur.`);
+  else if (failed) toast(`${plural(failed, 'photo n’a', 'photos n’ont')} pas pu être envoyée${failed > 1 ? 's' : ''}. Vérifie la connexion et réessaie.`);
+  else toast(`${plural(ok, 'photo ajoutée', 'photos ajoutées')}`);
+});
+
+/* =========================================================
+   Visionneuse plein écran avec swipe
+   ========================================================= */
+let viewer = null;
+function openViewer(index) {
+  closeViewer(true);
+  const el = document.createElement('div'); el.className = 'viewer'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Photo');
+  el.innerHTML = `
+    <div class="viewer-top">
+      <button class="icon-btn" data-act="close" aria-label="Fermer">${icon('close')}</button>
+      <div class="count mono"></div>
+      <span style="width:40px"></span>
+    </div>
+    <div class="stage">
+      <div class="track"></div>
+      <button class="nav-arrow prev" aria-label="Photo précédente">${icon('left')}</button>
+      <button class="nav-arrow next" aria-label="Photo suivante">${icon('right')}</button>
+    </div>
+    <div class="viewer-bottom">
+      <div class="caption-line"><div class="cap"></div><div class="by mono"></div></div>
+      <div class="viewer-actions">
+        <button data-act="caption">${icon('text')}Légende</button>
+        <button data-act="download">${icon('download')}Enregistrer</button>
+        <button data-act="delete">${icon('trash')}Supprimer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el); document.body.style.overflow = 'hidden';
+  viewer = { el, index, track: $('.track', el), dx: 0 };
+  history.pushState({ v: 'viewer' }, '');
+  buildSlides(); setupSwipe();
+  el.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const act = b.dataset.act; const p = state.photos[viewer.index];
+    if (act === 'close') history.back();
+    if (act === 'caption') captionSheet(p);
+    if (act === 'download') savePhoto(p);
+    if (act === 'delete') confirmSheet({ title: 'Supprimer cette photo ?', text: 'Elle disparaîtra pour vous deux. C’est définitif.', ok: 'Supprimer',
+      onConfirm: async () => {
+        await api.deletePhoto(p); state.photos.splice(viewer.index, 1); state.usage -= Number(p.size_bytes || 0);
+        toast('Photo supprimée');
+        if (!state.photos.length) { history.back(); return; }
+        viewer.index = Math.min(viewer.index, state.photos.length - 1); buildSlides(); render();
+      } });
+  });
+  $('.prev', el).addEventListener('click', () => go(-1));
+  $('.next', el).addEventListener('click', () => go(1));
+  document.addEventListener('keydown', viewerKeys);
+}
+function viewerKeys(e) {
+  if (!viewer || document.querySelector('.sheet-backdrop')) return;
+  if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'ArrowRight') go(1); else if (e.key === 'Escape') history.back();
+}
+function closeViewer(silent) {
+  if (!viewer) return;
+  viewer.el.remove(); viewer = null; document.body.style.overflow = ''; document.removeEventListener('keydown', viewerKeys);
+  if (!silent) render();
+}
+async function slideImg(i) {
+  const p = state.photos[i]; if (!p) return '';
+  return `<img src="${esc(p.thumbUrl)}" data-full="${esc(p.id)}" alt="${esc(p.caption || 'Photo')}" draggable="false">`;
+}
+async function buildSlides() {
+  const v = viewer; const i = v.index;
+  const html = await Promise.all([i - 1, i, i + 1].map(async k => `<div class="slide">${await slideImg(k)}</div>`));
+  if (viewer !== v) return;
+  v.track.innerHTML = html.join('');
+  setTrack(0, false); updateMeta();
+  // remplace la miniature par la photo en pleine définition
+  v.track.querySelectorAll('img[data-full]').forEach(async img => {
+    const p = state.photos.find(x => x.id === img.dataset.full); if (!p) return;
+    try { const u = await api.fullUrl(p); const hi = new Image(); hi.onload = () => { img.src = u; }; hi.src = u; } catch (e) {}
+  });
+}
+function setTrack(dx, anim) {
+  viewer.track.style.transition = anim ? 'transform .28s cubic-bezier(.2,.8,.2,1)' : 'none';
+  viewer.track.style.transform = `translateX(calc(-100% + ${dx}px))`;
+}
+function updateMeta() {
+  const p = state.photos[viewer.index]; if (!p) return;
+  $('.count', viewer.el).textContent = `${viewer.index + 1} / ${state.photos.length}`;
+  const cap = $('.cap', viewer.el);
+  cap.textContent = p.caption || 'Pas de légende'; cap.classList.toggle('placeholder', !p.caption);
+  $('.by', viewer.el).textContent = `${api.name(p.uploaded_by)} · ${fmtDate(p.created_at, true)}`;
+  $('.prev', viewer.el).style.visibility = viewer.index > 0 ? 'visible' : 'hidden';
+  $('.next', viewer.el).style.visibility = viewer.index < state.photos.length - 1 ? 'visible' : 'hidden';
+}
+function go(dir) {
+  const n = viewer.index + dir;
+  if (n < 0 || n >= state.photos.length) { setTrack(0, true); return; }
+  setTrack(-dir * viewer.track.clientWidth, true);
+  const v = viewer;
+  setTimeout(() => { if (viewer === v) { v.index = n; buildSlides(); } }, 280);
+}
+function setupSwipe() {
+  const stage = $('.stage', viewer.el); let x0 = null, y0 = 0, t0 = 0, horiz = null;
+  stage.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; t0 = Date.now(); horiz = null; stage.setPointerCapture(e.pointerId); });
+  stage.addEventListener('pointermove', e => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0, dy = e.clientY - y0;
+    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
+    if (horiz) {
+      const edge = (viewer.index === 0 && dx > 0) || (viewer.index === state.photos.length - 1 && dx < 0);
+      setTrack(edge ? dx * .3 : dx, false);
+    } else if (horiz === false && dy > 0) {
+      viewer.track.style.transform = `translate(-100%, ${dy}px)`; viewer.el.style.background = `rgba(10,12,11,${Math.max(.3, .94 - dy / 500)})`;
+    }
+  });
+  const end = e => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0, dy = e.clientY - y0, fast = Date.now() - t0 < 250;
+    x0 = null; viewer.el.style.background = '';
+    if (horiz) { const w = viewer.track.clientWidth; if (dx < -w / 4 || (fast && dx < -40)) go(1); else if (dx > w / 4 || (fast && dx > 40)) go(-1); else setTrack(0, true); }
+    else if (horiz === false && dy > 120) history.back();
+    else setTrack(0, true);
+  };
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+}
+function captionSheet(p) {
+  inputSheet({ title: 'Légende', label: 'Texte affiché sous la photo', value: p.caption || '', ok: 'Enregistrer', maxLength: 200,
+    placeholder: 'Ex. : Premier soir sur la plage',
+    onSubmit: async txt => { await api.setCaption(p.id, txt); p.caption = txt; if (viewer) updateMeta(); } });
+}
+async function savePhoto(p) {
+  try {
+    const blob = await api.fetchBlob(p);
+    const name = `photo-${new Date(p.created_at).toISOString().slice(0, 10)}-${p.id.slice(0, 6)}.jpg`;
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    if (DEMO) toast('En démo, l’enregistrement peut être bloqué par la page.');
+  } catch (e) { toast('Impossible de récupérer la photo.'); }
+}
+
+/* =========================================================
+   Navigation (bouton retour Android / geste iPhone)
+   ========================================================= */
+window.addEventListener('popstate', e => {
+  const s = e.state || { v: 'home' };
+  document.querySelectorAll('.sheet-backdrop').forEach(b => b.remove());
+  if (viewer && s.v !== 'viewer') { closeViewer(); return; }
+  if (s.v === 'home' && state.view !== 'home') goHome(false);
+  else if (s.v === 'album' && state.view !== 'album') openAlbum(s.id, true);
+});
+
+/* =========================================================
+   Temps réel : quand l'autre ajoute une photo, elle apparaît
+   ========================================================= */
+let rtTimer;
+function onRemoteChange() {
+  clearTimeout(rtTimer);
+  rtTimer = setTimeout(async () => {
+    if (state.uploading || viewer || document.querySelector('.sheet-backdrop')) return;
+    try {
+      if (state.view === 'home') { await loadHome(); render(); }
+      else if (state.view === 'album') { await refreshAlbum(); state.usage = await api.usage(); render(); }
+    } catch (e) {}
+  }, 600);
+}
+
+/* =========================================================
+   Démarrage
+   ========================================================= */
+async function afterLogin(user) {
+  state.user = user;
+  try {
+    const n = await api.loadMembers();
+    if (!n) { app.innerHTML = `<main class="wrap empty"><strong>Compte non autorisé</strong><p>Ce compte n’est pas dans la liste des membres. Ajoute-le dans la table « members » (voir le guide).</p><button class="btn ghost" id="lo">Se déconnecter</button></main>`; $('#lo').onclick = () => api.signOut(); return; }
+  } catch (e) { toast('Connexion à la base impossible.'); }
+  history.replaceState({ v: 'home' }, '');
+  await goHome(false);
+  api.subscribe(onRemoteChange);
+}
+async function start() {
+  render();
+  api.onAuth(user => {
+    if (user && !state.user) afterLogin(user);
+    else if (!user) { state.user = null; state.view = 'login'; closeViewer(true); render(); }
+  });
+  const user = await api.session();
+  if (user) { if (!state.user) afterLogin(user); } else { state.view = 'login'; render(); }
+}
+start();
+
+if ('serviceWorker' in navigator && !DEMO) {
+  try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+}
+})();
+</script>
+
+</body>
+</html>
