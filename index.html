@@ -391,20 +391,31 @@ async function compress(file) {
 /* =========================================================
    Date de prise de vue (métadonnées EXIF du fichier d'origine)
    ========================================================= */
-async function takenAt(file) {
+// Cherche le bloc EXIF n'importe où dans le fichier : marche pour le JPEG comme pour le HEIC
+// (photos Samsung en « haute efficacité », iPhone).
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function takenAt(file, buf) {
+  let date = null;
   try {
-    const buf = await file.slice(0, 256 * 1024).arrayBuffer();
-    const v = new DataView(buf);
-    if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null; // pas un JPEG
-    let off = 2;
-    while (off + 4 <= v.byteLength) {
-      const marker = v.getUint16(off); const len = v.getUint16(off + 2);
-      if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) return readExifDate(v, off + 10);
-      if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) break;
-      off += 2 + len;
+    buf = buf || await file.arrayBuffer();
+    const b = new Uint8Array(buf); const v = new DataView(buf);
+    for (let i = 0; i + 14 < b.length && !date; i++) {
+      // « Exif\0\0 » suivi d'un en-tête TIFF (II*\0 ou MM\0*)
+      if (b[i] === 0x45 && b[i + 1] === 0x78 && b[i + 2] === 0x69 && b[i + 3] === 0x66 && b[i + 4] === 0 && b[i + 5] === 0) {
+        const t = i + 6;
+        if ((b[t] === 0x49 && b[t + 1] === 0x49 && b[t + 2] === 0x2A && b[t + 3] === 0) ||
+            (b[t] === 0x4D && b[t + 1] === 0x4D && b[t + 2] === 0 && b[t + 3] === 0x2A)) {
+          try { date = readExifDate(v, t); } catch (e) {}
+        }
+      }
     }
   } catch (e) {}
-  return null;
+  // Sinon, sur Android, la date du fichier correspond en général à la prise de vue.
+  // (Sur iPhone, c'est l'heure de sélection : inutilisable.)
+  if (!date && !IS_IOS && file.lastModified && file.lastModified < Date.now() - 120000) {
+    date = new Date(file.lastModified).toISOString();
+  }
+  return date;
 }
 function readExifDate(v, tiff) {
   const le = v.getUint16(tiff) === 0x4949;
@@ -937,10 +948,10 @@ function deleteAlbumSheet() {
 }
 
 /* Empreinte d'une photo : SHA-256 du fichier d'origine (null si le navigateur ne sait pas faire) */
-async function fingerprint(file) {
+async function fingerprint(data) {
   try {
     if (!crypto.subtle) return null;
-    const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const buf = await crypto.subtle.digest('SHA-256', data);
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
   } catch (e) { return null; }
 }
@@ -982,11 +993,12 @@ $('#file-input').addEventListener('change', async e => {
     if (full) { full++; state.pending.shift(); continue; }
     const slot = state.pending[0];
     try {
-      const hash = known ? await fingerprint(files[i]) : null;
+      const raw = await files[i].arrayBuffer();
+      const hash = known ? await fingerprint(raw) : null;
       if (hash && known.has(hash)) { dupes++; }
       else {
         const c = await compress(files[i]);
-        c.takenAt = await takenAt(files[i]);
+        c.takenAt = await takenAt(files[i], raw);
         slot.preview = URL.createObjectURL(c.thumb); slot.progress = 45; if (state.album?.id === albumId) render();
         const photo = await api.upload(albumId, c, hash);
         if (hash) known.add(hash);
